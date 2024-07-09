@@ -352,3 +352,66 @@ class PneumoniaImageDataset(ImageBaseDataset):
             img = self.transform(img)
 
         return img
+
+
+class CheXpertImageDataset(ImageBaseDataset):
+    def __init__(self, split, input_shape=224, transform=None):
+        self.transform = transform
+        self.input_shape = input_shape
+        self.split = split
+        self.hdf5_file_path = f'{MIMIC_H5_PATH}/{split}_{input_shape}.h5'
+        
+        # Load data into memory
+        with h5py.File(self.hdf5_file_path, 'r') as f:
+            self.images = f['images'][:]
+            self.reports = f['reports'][:]
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        image = self.images[idx]
+        report = self.reports[idx]
+
+        image_pil = Image.fromarray(image).convert('RGB')
+        
+        sample = {'image': image_pil, 'phrase': report}
+
+        if self.transform:
+            sample = self.transform(sample)
+        
+        return sample
+    def __init__(self, cfg, split="train", input_shape=224, transform=None):
+
+        self.cfg = cfg
+
+        self.transform = transform
+        self.input_shape = input_shape
+        self.split = split
+        self.hdf5_file_path = f'{MIMIC_H5_PATH}/{split}_{input_shape}.h5'
+        
+        # Load data into memory
+        with h5py.File(self.hdf5_file_path, 'r') as f:
+            self.images = f['images'][:]
+            self.reports = f['reports'][:]
+
+        # # sample data
+        # if cfg.data.frac != 1 and split == "train":
+        #     self.df = self.df.sample(frac=cfg.data.frac)
+
+        super(CheXpertImageDataset, self).__init__(cfg, split, transform)
+
+    
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        image = self.images[idx]
+        report = self.reports[idx]
+
+        image_pil = Image.fromarray(image).convert('RGB')
+        
+        sample = {'image': image_pil, 'phrase': report}
+
+        if self.transform:
+            sample = self.transform(sample)

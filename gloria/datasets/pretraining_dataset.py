@@ -14,6 +14,68 @@ from nltk.tokenize import RegexpTokenizer
 from transformers import AutoTokenizer
 from gloria.constants import *
 
+class MultimodalPretrainingDataset(data.Dataset):
+    def __init__(self, cfg, split="train", input_shape=224, transform=None):
+
+        self.cfg = cfg
+        self.transform = transform
+        self.max_word_num = self.cfg.data.text.captions_per_image
+
+        self.split = split
+        self.hdf5_file_path = f'{MIMIC_H5_PATH}/{split}_{input_shape}.h5'
+        
+        # Load data into memory
+        with h5py.File(self.hdf5_file_path, 'r') as f:
+            self.images = f['images'][:]
+            self.reports = f['reports'][:]
+
+        # create BERT tokenizer
+        self.tokenizer = AutoTokenizer.from_pretrained(self.cfg.model.text.bert_type)
+
+     def __len__(self):
+        return len(self.images)
+
+    def get_caption(self, path):
+
+        series_sents = self.path2sent[path]
+
+        if len(series_sents) == 0:
+            print(path)
+            raise Exception("no sentence for path")
+
+        if self.cfg.data.text.full_report is True:
+            sent = " ".join(series_sents)
+        else:
+            sent_ix = random.randint(0, len(series_sents))
+            sent = series_sents[sent_ix]
+
+        tokens = self.tokenizer(
+            sent,
+            return_tensors="pt",
+            truncation=True,
+            padding="max_length",
+            max_length=self.cfg.data.text.word_num,
+        )
+        x_len = len([t for t in tokens["input_ids"][0] if t != 0])
+
+        return tokens, x_len
+
+    def __getitem__(self, idx):
+        image = self.images[idx]
+        report = self.reports[idx]
+
+        img = Image.fromarray(image).convert('RGB')
+
+        if transform is not None:
+            img = transform(img)
+
+        # randomly select a sentence
+        caps, cap_len = self.get_caption(key)
+
+        return imgs, caps, cap_len, key
+
+
+
 
 class MultimodalPretrainingDataset(data.Dataset):
     def __init__(self, cfg, split="train", transform=None):
